@@ -4,26 +4,50 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <arpa/inet.h>
+#include <openssl/err.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 #include <openssl/dh.h>
 #include "common.h"
 
-void encrypt_data(char*aes_key, const char* plaintext, int plaintext_length, unsigned char* ciphertext) {
+int encrypt_data(char*aes_key, const char* plaintext, int plaintext_length, char* iv ,unsigned char* ciphertext) {
     EVP_CIPHER_CTX *ctx;
-    int encrypted_length;
+    int len;
+    int ciphertext_len;
 
-    // Initialize the encryption context
-    ctx = EVP_CIPHER_CTX_new();
-    EVP_CIPHER_CTX_init(ctx);
-    EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, aes_key, NULL);
+    // Create and initialise the context
+    if(!(ctx = EVP_CIPHER_CTX_new())) {
+        ERR_print_errors_fp(stderr);
+        return 0;
+    }
 
-    // Encrypt the data
-    EVP_EncryptUpdate(ctx, ciphertext, &encrypted_length, (const unsigned char*)plaintext, plaintext_length);
-    EVP_EncryptFinal_ex(ctx, ciphertext + encrypted_length, &encrypted_length);
+    // Initialise the encryption operation
+    if(1 != EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, aes_key, iv)) {
+        ERR_print_errors_fp(stderr);
+        EVP_CIPHER_CTX_free(ctx);
+        return 0;
+    }
 
-    // Close the encryption context
+    // Provide the message to be encrypted, and obtain the encrypted output
+    if(1 != EVP_EncryptUpdate(ctx, ciphertext, &len, plaintext, plaintext_length)) {
+        ERR_print_errors_fp(stderr);
+        EVP_CIPHER_CTX_free(ctx);
+        return 0;
+    }
+    ciphertext_len = len;
+
+    // Finalise the encryption
+    if(1 != EVP_EncryptFinal_ex(ctx, ciphertext + len, &len)) {
+        ERR_print_errors_fp(stderr);
+        EVP_CIPHER_CTX_free(ctx);
+        return 0;
+    }
+    ciphertext_len += len;
+
+    // Clean up
     EVP_CIPHER_CTX_free(ctx);
+    
+    return ciphertext_len;
 }
 
 // Function to handle a client connection
@@ -38,13 +62,39 @@ void* handle_kdc_client(void* arg) {
     //receove message1 from client
     NsMessage1 msg1;
     recv(client_socket, &msg1, sizeof(NsMessage1), 0);
-    printf("Message1 from client:\nClient: %s\nServer: %s\nNonce: %s\n", msg1.client_username, msg1.server_username, msg1.nonce1);
+    printf("\nMessage1 from client\nClient: %s\nServer: %s\nNonce: %s\n", msg1.client_username, msg1.server_username, msg1.nonce1);
 
     // using aes256 to encrypt the tickit and other informations 
-    // char plan_text[BUFFER_SIZE];
-    // sprintf(plan_text, "%d", num);
-    // char ticket[BUFFER_SIZE];
-    // encrypt_data(common_data->server.symmetric_key, );
+    NsMessage2 msg2;
+    // strncpy(msg2.nonce1, msg1.nonce1, sizeof(msg2.nonce1));
+    // strncpy(msg2.server_username, CHAT_SERVER_USERNAME, sizeof(msg2.server_username));
+    // // TODO change session key and encrypted ticket
+    // strncpy(msg2.session_key, generate_username(SESSION_KEY_LEN), sizeof(msg2.session_key));
+    // strncpy(msg2.encrypted_ticket, "ThisIsTIcket", sizeof(msg2.encrypted_ticket));
+
+    memset((char*)&msg2, '\0', sizeof(NsMessage2));
+    strcpy(msg2.nonce1, msg1.nonce1);
+    strcpy(msg2.server_username, CHAT_SERVER_USERNAME);
+    // TODO change session key and encrypted ticket
+    strcpy(msg2.session_key, "This is Session Key\0");
+    strcpy(msg2.encrypted_ticket, "ThisIsTIcket\0");
+    
+    User *current_user = NULL;
+    for(int i=0;i<MAX_CLIENTS;i++){
+        if(strcmp(msg1.client_username, common_data->users[i].username) == 0)
+            current_user = &common_data->users[i];
+    }
+    if(current_user == NULL){
+        perror("Requested User Does Not Exist");
+        exit(EXIT_SUCCESS);
+    }
+    unsigned char encrypted_msg2[BUFFER_SIZE]; // buffer can be small check
+    memset(encrypted_msg2, '\0', BUFFER_SIZE);
+    int encrypt_data_len = encrypt_data(current_user->symmetric_key, (unsigned char*)&msg2, sizeof(msg2), NULL, (unsigned char*)encrypted_msg2);
+    send(client_socket, encrypted_msg2, encrypt_data_len, 0);
+    
+
+
 
     // Close the client socket when done
     close(client_socket);
@@ -76,7 +126,7 @@ void* kdc_thread(void* arg) {
 
     // Listen for incoming connections
     if (listen(server_socket, MAX_CLIENTS) == 0) {
-        printf("Listening on CHAT port...\n");
+        printf("Listening on KDC port...\n");
     } else {
         printf("Error in listening\n");
     }

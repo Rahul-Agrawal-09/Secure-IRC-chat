@@ -2,15 +2,60 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <pthread.h>
 #include <arpa/inet.h>
+#include <openssl/err.h>
+#include <openssl/evp.h>
+#include <openssl/rand.h>
+#include <openssl/dh.h>
 #include "common.h"
 
 #define KDC_SERVER_IP "127.0.0.1"
-#define KDC_PORT 12345
-#define CHAT_PORT 54321
 
 User *info; // Store client information including username, password, and ticket
 int client_socket;
+
+int decrypt_data(unsigned char *ciphertext, int ciphertext_len, unsigned char *key,
+                 unsigned char *iv, unsigned char *plaintext) {
+    EVP_CIPHER_CTX *ctx;
+    int len;
+    int plaintext_len;
+
+    // Create and initialize the context
+    if(!(ctx = EVP_CIPHER_CTX_new())) {
+        ERR_print_errors_fp(stderr);
+        return 0;
+    }
+
+    // Initialize the decryption operation
+    if(1 != EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv)) {
+        ERR_print_errors_fp(stderr);
+        EVP_CIPHER_CTX_free(ctx);
+        return 0;
+    }
+
+    // Provide the message to be decrypted, and obtain the plaintext output
+    if(1 != EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext, ciphertext_len)) {
+        ERR_print_errors_fp(stderr);
+        EVP_CIPHER_CTX_free(ctx);
+        return 0;
+    }
+    plaintext_len = len;
+
+    // Finalize the decryption
+    if(1 != EVP_DecryptFinal_ex(ctx, plaintext + len, &len)) {
+        ERR_print_errors_fp(stderr);
+        EVP_CIPHER_CTX_free(ctx);
+        return 0;
+    }
+    plaintext_len += len;
+
+    // Clean up
+    EVP_CIPHER_CTX_free(ctx);
+
+    printf("Length %d\n", plaintext_len);
+    return plaintext_len;
+}
 
 // Function to perform KDC authentication
 void kdc_authentication() {
@@ -18,11 +63,20 @@ void kdc_authentication() {
     // sending the A, B, Nonce1 to KDC
     NsMessage1 msg1;
     strncpy(msg1.client_username, info->username, sizeof(msg1.client_username));
-    strncpy(msg1.server_username, common_data->server.username, sizeof(msg1.client_username));
+    strncpy(msg1.server_username, CHAT_SERVER_USERNAME, sizeof(msg1.client_username));
     sprintf(msg1.nonce1, "%d", generate_nonce());
     send(client_socket, &msg1, sizeof(NsMessage1), 0);
 
     // receive response from KDC
+    unsigned char encrypted_msg2[BUFFER_SIZE];
+    NsMessage2 msg2;
+    memset(encrypted_msg2, '\0', BUFFER_SIZE);
+    memset((char*)&msg2, '\0', sizeof(NsMessage2));
+    int encrypt_data_len = recv(client_socket, encrypted_msg2, BUFFER_SIZE, 0);
+    decrypt_data(encrypted_msg2, encrypt_data_len, info->symmetric_key, NULL, (unsigned char*)&msg2);
+    printf("Server username: %s\nNonce: %s\nEncrypted ticeket: %s\nSession key: %s\n", 
+    msg2.server_username, msg2.nonce1, msg2.encrypted_ticket, msg2.session_key);
+
 
 
 
@@ -52,37 +106,19 @@ void needham_schroeder_protocol(int client_socket) {
 
 int main() {
 
-    common_data = (CommonData*)map_common_space();
-    int my_index = -1;
     // Initializing myinformaiton
+    info = (User*)malloc(sizeof(User));
     char *username = getenv("LOGNAME");
     if (username == NULL) {
         perror("Error getting username");
         return 1;
     }
-
-    // Comparing Not working
-    // for(int i=0;i<MAX_CLIENTS;i++){
-    //     printf("%s\n", common_data->users[i].username);
-    //     if(strncmp(common_data->users[i].username, username, strlen(common_data->users[i].username))){
-    //         my_index = i;
-    //         break;
-    //     }
-    // }
-    if(my_index==-1){
-        common_data->current_user_number += 1;
-        my_index = common_data->current_user_number;
-    }
-    if(common_data->current_user_number>=MAX_CLIENTS){
-        perror("Client Threashold reached");
-        return 1;
-    }
-    printf("My Index: %d\n", my_index);
-    info = &common_data->users[my_index];
-    strncpy(info->username, username, sizeof(info->username));
+    printf("Enter your Password: ");
+    scanf("%s", info->password); // password
+    strncpy(info->username, username, sizeof(info->username)); // username
+    derive_key(info->password, info->symmetric_key);
     info->is_online = true;
     printf("My Username: %s\nPassword: %s\nLength of Secret: %ld\n", info->username, info->password ,sizeof(info->symmetric_key));
-
 
     // Initialize client information including username, password, and ticket
     struct sockaddr_in server_addr;
