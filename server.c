@@ -28,7 +28,6 @@ int main() {
 
     // Initialize user data with long-term symmetric keys and tickets
     for (int i = 0; i < MAX_CLIENTS; i++) {
-        common_data->users[i].is_online = false;
         strncpy(common_data->users[i].username, usernames[i], sizeof(common_data->users[i].username));
         // strncpy(common_data->users[i].ticket, "", sizeof(common_data->users[i].ticket));     // currently not using ticket
         // Generate a password for each user
@@ -40,7 +39,6 @@ int main() {
     strncpy(common_data->server.password, generate_username(32), sizeof(common_data->server.password));
     strncpy(common_data->server.username, CHAT_SERVER_USERNAME, sizeof(common_data->server.username));
     derive_key(common_data->server.password, common_data->server.symmetric_key);
-    common_data->server.is_online = true;
 
     // Create a thread for the KDC server
     pthread_create(&kdc_tid, NULL, kdc_thread, NULL);

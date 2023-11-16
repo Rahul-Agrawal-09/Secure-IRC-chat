@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <time.h>
+#include <string.h>
 #include <stdbool.h>
 #include <sys/mman.h>
 #include <fcntl.h>
@@ -21,6 +22,7 @@
 #define SALT_LENGTH 16 // Length of the salt (in bytes)
 #define ITERATION_COUNT 10000 // Number of iterations
 #define ENCRYPTED_TICKET_LEN 256
+#define SERVER_IP "127.0.0.1"
 
 #define MAX_NONCE INT32_MAX
 #define CHAT_SERVER_USERNAME "NssChat123"
@@ -30,7 +32,6 @@ typedef struct {
     char password[MAX_PASSWORD_LEN];
     unsigned char symmetric_key[MAX_SYMMETRIC_KEY_LEN];
     // char ticket[MAX_SYMMETRIC_KEY_LEN]; // Store user's ticket
-    bool is_online;
 } User;
 
 typedef struct {
@@ -39,12 +40,6 @@ typedef struct {
     // int current_user_number;
 } CommonData;
 CommonData *common_data;
-
-// typedef struct {
-//     char username[MAX_USERNAME_LEN];
-//     char password[MAX_PASSWORD_LEN];
-//     char ticket[MAX_SYMMETRIC_KEY_LEN]; // Store user's ticket
-// } MyInfo;
 
 typedef struct {
     char client_username[MAX_USERNAME_LEN];
@@ -61,8 +56,14 @@ typedef struct {
     char nonce1 [MAX_NONCE_LENGTH];
     char server_username [MAX_USERNAME_LEN];
     char session_key[MAX_SESSION_KEY_LEN];
+    int encrypted_ticket_len;
     char encrypted_ticket[ENCRYPTED_TICKET_LEN];
 } NsMessage2;
+
+typedef struct {
+    char encrypted_ticket[ENCRYPTED_TICKET_LEN];
+    char encrypted_nonce[ENCRYPTED_TICKET_LEN];
+} MsMessage3;
 
 // Generate a random nonce within the specified range
 int generate_nonce() {
@@ -115,14 +116,6 @@ void* map_common_space(){
 
 // Function to perform PBKDF key derivation
 void derive_key(char *password, char *key) {
-
-    // Implement key derivation logic using OpenSSL's PBKDF2 function
-    // Generate a random salt
-    // unsigned char salt[SALT_LENGTH];
-    // if (RAND_bytes(salt, SALT_LENGTH) != 1) {
-    //     fprintf(stderr, "Error generating random salt\n");
-    //     return;
-    // } // Not generating as then we do not get same hash for same passeord
 
     // Derive the key using PBKDF2/HKDF
     if (PKCS5_PBKDF2_HMAC(password, strlen(password), "ThisIsSalt", SALT_LENGTH, ITERATION_COUNT, EVP_sha256(), MAX_SYMMETRIC_KEY_LEN, key) != 1) {
