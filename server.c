@@ -18,7 +18,7 @@ int main() {
     OpenSSL_add_all_algorithms();
 
     // mapping the shared/common data spce
-    common_data = (CommonData*)map_common_space();
+    common_data = (CommonData*)malloc(sizeof(CommonData));
     char usernames[MAX_CLIENTS][MAX_USERNAME_LEN] = {
         "rahul", "mark", "bill", "larry", "raju", "shyam", "alice", "bob",  "charli", "root"
     };

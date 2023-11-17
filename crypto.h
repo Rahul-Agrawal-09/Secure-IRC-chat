@@ -88,6 +88,5 @@ int decrypt_data(unsigned char *ciphertext, int ciphertext_len, unsigned char *k
     // Clean up
     EVP_CIPHER_CTX_free(ctx);
 
-    printf("Length %d\n", plaintext_len);
     return plaintext_len;
 }

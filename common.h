@@ -56,19 +56,21 @@ typedef struct {
     char nonce1 [MAX_NONCE_LENGTH];
     char server_username [MAX_USERNAME_LEN];
     char session_key[MAX_SESSION_KEY_LEN];
-    int encrypted_ticket_len;
+    size_t encrypted_ticket_len;
     char encrypted_ticket[ENCRYPTED_TICKET_LEN];
 } NsMessage2;
 
 typedef struct {
-    char encrypted_ticket[ENCRYPTED_TICKET_LEN];
-    char encrypted_nonce[ENCRYPTED_TICKET_LEN];
-} MsMessage3;
+    char decremented_nonce2 [MAX_NONCE_LENGTH];
+    char nonce3 [MAX_NONCE_LENGTH];
+} Challenge;
 
 // Generate a random nonce within the specified range
 int generate_nonce() {
-    // uniqie number every time
-    srand(time(NULL));
+    // uniqie number every nano second
+    struct timespec time;
+    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time);
+    srand(time.tv_nsec);
     int nonce = rand() % MAX_NONCE;
     return nonce;
 }
@@ -84,34 +86,6 @@ char* generate_username(int username_length) {
     }
     // random_username[username_length] = '\0';
     return random_username;
-}
-
-// map shared space for common structure
-void* map_common_space(){
-    // const char *file_path = "common_data.txt";
-    const size_t size = sizeof(CommonData);
-    
-    // // Create or open the file
-    // int fd = open(file_path, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
-    // if (fd == -1) {
-    //     perror("open");
-    //     exit(EXIT_FAILURE);
-    // }
-    // // Truncate the file to the desired size
-    // if (ftruncate(fd, size) == -1) {
-    //     perror("ftruncate");
-    //     close(fd);
-    //     exit(EXIT_FAILURE);
-    // }
-    // // Map the file into memory using mmap
-    // void *mem = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    // if (mem == MAP_FAILED) {
-    //     perror("mmap");
-    //     close(fd);
-    //     exit(EXIT_FAILURE);
-    // }
-    // return mem;
-    return malloc(size);
 }
 
 // Function to perform PBKDF key derivation

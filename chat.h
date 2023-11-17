@@ -10,14 +10,44 @@
 
 // Function to handle a client connection
 void* handle_chat_client(void* arg) {
-    // Implement authentication and protocol logic here
-    // You should perform Needham-Schroeder authentication here
-    // Remember to securely store and handle keys
-    // Use a secure communication channel (e.g., TLS/SSL) for key exchange
 
     int client_socket = *((int*)arg);
-    // TODO: Implement authentication and protocol
+    
+    // getting the tickit and encrypted nonce2
+    unsigned char encrypted_ticket[BUFFER_SIZE];
+    char encrypted_nonce2[ENCRYPTED_TICKET_LEN];
+    size_t encrypted_ticket_len = recv(client_socket, encrypted_ticket, BUFFER_SIZE, 0);
+    send(client_socket, " ", 1, 0);
+    int encrypted_nonce_len = recv(client_socket, encrypted_nonce2, ENCRYPTED_TICKET_LEN, 0);
+    // Decrypting the tickit and the nonce
+    Ticket ticket;
+    char nonce2[MAX_NONCE_LENGTH];
+    decrypt_data(encrypted_ticket, encrypted_ticket_len, common_data->server.symmetric_key, NULL, (unsigned char *)&ticket);
+    decrypt_data(encrypted_nonce2, encrypted_nonce_len, ticket.session_key, NULL, nonce2);
+    printf("Requesting User: %s\nSession key: %s\nNonce2: %s\n",ticket.requesting_username, ticket.session_key, nonce2);
 
+
+    // constructing and sending challenge to the client
+    Challenge challenge;
+    sprintf(challenge.decremented_nonce2, "%d", atoi(nonce2)-1);
+    sprintf(challenge.nonce3, "%d", generate_nonce());
+    printf("Nonce3: %s\n", challenge.nonce3);
+    char encrypted_challenge[BUFFER_SIZE];
+    size_t encrypted_challenge_len = encrypt_data(ticket.session_key, (char*)&challenge, sizeof(Challenge), NULL, encrypted_challenge);
+    if(send(client_socket, encrypted_challenge, encrypted_challenge_len, 0) == -1)
+        perror("Error sending challenge");
+
+    // receiving the response to the challenge
+    char response[MAX_NONCE_LENGTH]; 
+    char encrypted_reponse[BUFFER_SIZE];
+    int encrypted_response_len = recv(client_socket, encrypted_reponse, BUFFER_SIZE, 0);
+    decrypt_data(encrypted_reponse, encrypted_response_len, ticket.session_key, NULL, response);
+    if(atoi(response) != atoi(challenge.nonce3)-1){
+        printf("CLIENT UnAuthenticated");
+        perror("Cannot authenticated client");
+    }
+
+    printf("Sucessfully Authenticated Client %s\n", ticket.requesting_username);
     // Close the client socket when done
     close(client_socket);
     return NULL;

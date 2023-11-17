@@ -27,15 +27,20 @@ void* handle_kdc_client(void* arg) {
         exit(EXIT_SUCCESS);
     }
     // <---- TODO change session key --->
-    char session_key[] = "This is session key";
+    char session_key[] = "ThisIsSessionKeyThisIsSessionKey";
     strncpy(msg2.session_key, session_key, sizeof(msg2.session_key));
     
     // generating ticket
     Ticket ticket;
     strncpy(ticket.requesting_username, current_user->username, sizeof(ticket.requesting_username));
     strncpy(ticket.session_key, session_key, sizeof(ticket.session_key));
-    msg2.encrypted_ticket_len = encrypt_data(common_data->server.symmetric_key, (unsigned char*)&ticket, sizeof(ticket), NULL, msg2.encrypted_ticket);
-    
+    msg2.encrypted_ticket_len = encrypt_data(common_data->server.symmetric_key, (unsigned char*)&ticket, sizeof(Ticket), NULL, msg2.encrypted_ticket);
+    printf("ETickit lenth %ld\n", msg2.encrypted_ticket_len);
+
+    Ticket ticket2;
+    decrypt_data(msg2.encrypted_ticket, msg2.encrypted_ticket_len, common_data->server.symmetric_key, NULL, (unsigned char *)&ticket2);
+    printf("Session key: %s\n", ticket2.session_key);
+
     // encrypting and sending the message
     unsigned char encrypted_msg2[BUFFER_SIZE]; // buffer can be small check
     int encrypt_data_len = encrypt_data(current_user->symmetric_key, (unsigned char*)&msg2, sizeof(msg2), NULL, (unsigned char*)encrypted_msg2);

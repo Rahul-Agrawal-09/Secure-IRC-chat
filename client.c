@@ -25,19 +25,45 @@ void kdc_authentication() {
     decrypt_data(encrypted_msg2, encrypt_data_len, info->symmetric_key, NULL, (unsigned char*)&msg2);
     printf("Server username: %s\nNonce: %s\nSession key: %s\n", 
     msg2.server_username, msg2.nonce1, msg2.session_key);
-    
     // our work with KDC is done
 }
 
 // Function to perform chat server authentication
 void chat_server_authentication() {
     // Initialize client information including username, password, and ticket
-    int nonce2 = generate_nonce();
-    MsMessage3 msg3;
-    strncpy(msg3.encrypted_ticket, msg2.encrypted_ticket, sizeof(msg2.encrypted_ticket));
-    int encrypted_nonce_len = encrypt_data(msg2.session_key, (char*)&nonce2, sizeof(nonce2), NULL, (unsigned char*)&msg3.encrypted_nonce);
+    char encrypted_nonce2[ENCRYPTED_TICKET_LEN];
+    char nonce2[MAX_NONCE_LENGTH];
+    sprintf(nonce2, "%d", generate_nonce());
+    printf("Nonce2: %s\n", nonce2);
+    int encrypted_nonce2_len = encrypt_data(msg2.session_key, nonce2, sizeof(nonce2), NULL, encrypted_nonce2);
     
-    
+    // send the tickit and encrypted nonce to the chat server
+    if(send(client_socket, msg2.encrypted_ticket, msg2.encrypted_ticket_len, 0) == -1)
+        perror("Problem sending ticket");
+    char ptr[1]; recv(client_socket, ptr, 1, 0);
+    if(send(client_socket, encrypted_nonce2, encrypted_nonce2_len, 0) == -1)
+        perror("Problem sending encrypted nonce2");
+
+    // getting the challenge from the sever
+    Challenge challenge; 
+    char encrypted_challenge[BUFFER_SIZE];
+    int encrypted_challenge_len = recv(client_socket, encrypted_challenge, BUFFER_SIZE, 0);
+    decrypt_data(encrypted_challenge, encrypted_challenge_len, msg2.session_key, NULL, (char*)&challenge);
+    printf("Decremented Nonce2: %s\nNonce3: %s\n", challenge.decremented_nonce2, challenge.nonce3);
+    if(atoi(challenge.decremented_nonce2) != atoi(nonce2)-1){
+        printf("SERVER UnAuthenticated\n");
+        perror("Cannot authenticated server");
+    }
+
+    // sending response to the challenge from the server
+    char response[MAX_NONCE_LENGTH];
+    sprintf(response, "%d", atoi(challenge.nonce3)-1);
+    char encrypted_reponse[BUFFER_SIZE];
+    size_t encrypted_response_len = encrypt_data(msg2.session_key, response, sizeof(response), NULL, encrypted_reponse);
+    if(send(client_socket, encrypted_reponse, encrypted_response_len, 0) == -1)
+        perror("Error sending challenge");    
+
+
 }
 
 // Function to handle the Needham-Schroeder Protocol on the client side
@@ -83,7 +109,7 @@ void needham_schroeder_protocol() {
 
     // Connect to the server
     if (connect(client_socket, (struct sockaddr*)&chat_server_addr, sizeof(chat_server_addr)) == 0) {
-        printf("Connected to KDC\n");
+        printf("Connected to CHAT server\n");
     } else {
         perror("Connection failed");
         exit(1);
