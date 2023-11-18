@@ -77,15 +77,18 @@ typedef struct {
 } LoggedUser;
 
 typedef struct{
+    char message_type[32];
     char username[MAX_USERNAME_LEN];
-    char message[MAX_MESSAGE_LEN]; 
-} BroadcastMessage;
+    char message[MAX_MESSAGE_LEN];
+    int group_id; 
+} Message;
 
 typedef struct{
     char group_name[MAX_USERNAME_LEN];
     int group_id;
     User *admin;
-    User *group_users[MAX_CLIENTS];
+    User *invited_users[MAX_CLIENTS];
+    User *accepted_users[MAX_CLIENTS];
 } Group;
 
 // Generate a random nonce within the specified range

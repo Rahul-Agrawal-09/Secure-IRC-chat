@@ -39,14 +39,27 @@ void create_group_client(char *input){
 }
 
 void server_pull_request(){
-    BroadcastMessage bmsg;
-    recv(client_socket, &bmsg, sizeof(bmsg), 0);
-    vlog_msg("[BCAST] %s: %s", bmsg.username, bmsg.message);
+    Message msg;
+    recv(client_socket, &msg, sizeof(msg), 0);
+    if(strcmp(msg.message_type, "BCAST")==0){
+        vlog_msg("[BCAST] %s: %s", msg.username, msg.message);
+    }
+    if(strcmp(msg.message_type, "WARN")==0){
+        vlog_msg("[WARN] %s", msg.message);
+    }
+    if(strcmp(msg.message_type, "INVITE")==0){
+        vlog_msg("[INVITE] %s", msg.message);
+    }
     return;
 }
 
 void group_invite_client(char *input){
-
+    char buffer[MAX_MESSAGE_LEN];
+    strncpy(buffer, &input[14], sizeof(buffer)-11);
+    char delim[] = " ";
+    char *ptr = strtok(buffer, delim);
+    vlog_msg("[INFO] Inviting User: %d in Group: %d", atoi(ptr), atoi(strtok(NULL, " ")));
+    send(client_socket, input, MAX_MESSAGE_LEN, 0);
 }
 
 

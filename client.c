@@ -50,7 +50,7 @@ void kdc_authentication() {
 }
 
 // Function to perform chat server authentication
-void chat_server_authentication() {
+int chat_server_authentication() {
     // Initialize client information including username, password, and ticket
     char encrypted_nonce2[ENCRYPTED_TICKET_LEN];
     char nonce2[MAX_NONCE_LENGTH];
@@ -59,11 +59,15 @@ void chat_server_authentication() {
     int encrypted_nonce2_len = encrypt_data(msg2.session_key, nonce2, sizeof(nonce2), NULL, encrypted_nonce2);
     
     // send the tickit and encrypted nonce to the chat server
-    if(send(client_socket, msg2.encrypted_ticket, msg2.encrypted_ticket_len, 0) == -1)
+    if(send(client_socket, msg2.encrypted_ticket, msg2.encrypted_ticket_len, 0) == -1){
         perror("Problem sending ticket");
+        return 0;
+    }
     char ptr[1]; recv(client_socket, ptr, 1, 0);
-    if(send(client_socket, encrypted_nonce2, encrypted_nonce2_len, 0) == -1)
+    if(send(client_socket, encrypted_nonce2, encrypted_nonce2_len, 0) == -1){
         perror("Problem sending encrypted nonce2");
+        return 0;
+    }
 
     // getting the challenge from the sever
     Challenge challenge; 
