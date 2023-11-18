@@ -1,11 +1,31 @@
-#include "crypto.h"
-#include "irc_interface.h"
+#include "irc_client.h"
 
 #define KDC_SERVER_IP "127.0.0.1"
 
-User *info; // Store client information including username, password, and ticket
-int client_socket;
-NsMessage2 msg2; // contains ticket and other info
+// launch the irc_interfaace
+void launch_irc_interface(){
+    // initialize ncurses
+    initscr();
+    cbreak();
+    // noecho();
+
+    // Create a new thread and pass it the argument
+    pthread_t thread_id;
+    int result = pthread_create(&thread_id, NULL, init__irc_interface, info->username);
+    if (result != 0) {
+        perror("Error creating thread");
+        return;
+    }
+
+    // Wait for the thread to finish
+    result = pthread_join(thread_id, NULL);
+    if (result != 0) {
+        perror("Error joining thread");
+        return;
+    }
+    endwin();
+    return;
+}
 
 // Function to perform KDC authentication
 void kdc_authentication() {
@@ -93,8 +113,8 @@ void needham_schroeder_protocol() {
 
     // Connect to the chat server and present the ticket for authentication
     // you can choose when to conncet to chat client
-    printf("PRESS ENTER TO CONNECT TO CHAT SERVER: ");
-    getchar();
+    printf("PRESS ENTER TO CONNECT TO CHAT SERVER: \n");
+    getch();
 
     struct sockaddr_in chat_server_addr;
     // Create socket
@@ -118,37 +138,15 @@ void needham_schroeder_protocol() {
     
     chat_server_authentication();
 
+    // Launch the IRC interface
+    launch_irc_interface();
+
     // Close the client socket when done
     close(client_socket);
 }
 
-// launch the irc_interfaace
-void launch_irc_interface(){
-    // initialize ncurses
-    initscr();
-    cbreak();
-    // noecho();
-
-    // Create a new thread and pass it the argument
-    pthread_t thread_id;
-    int result = pthread_create(&thread_id, NULL, init__irc_interface, info->username);
-    if (result != 0) {
-        perror("Error creating thread");
-        return;
-    }
-
-    // Wait for the thread to finish
-    result = pthread_join(thread_id, NULL);
-    if (result != 0) {
-        perror("Error joining thread");
-        return;
-    }
-    endwin();
-    return;
-}
 
 int main() {
-
     // Initializing myinformaiton
     info = (User*)malloc(sizeof(User));
     char *username = getenv("LOGNAME");
@@ -165,9 +163,6 @@ int main() {
     // Perform the Needham-Schroeder Protocol
     needham_schroeder_protocol(client_socket);
 
-    // Launch the IRC interface
-    launch_irc_interface();
-
-
     return 0;
 }
+

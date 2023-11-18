@@ -65,6 +65,11 @@ typedef struct {
     char nonce3 [MAX_NONCE_LENGTH];
 } Challenge;
 
+typedef struct {
+    char username[MAX_USERNAME_LEN];
+    int user_socket; 
+} LoggedUser;
+
 // Generate a random nonce within the specified range
 int generate_nonce() {
     // uniqie number every nano second

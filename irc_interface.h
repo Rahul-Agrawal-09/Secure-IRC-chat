@@ -4,13 +4,16 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
-#include<unistd.h>
+#include <unistd.h>
+#include "crypto.h"
 
 #define MAX_MESSAGE_LEN 256
 WINDOW *chatwin;
 pthread_mutex_t myMutex = PTHREAD_MUTEX_INITIALIZER;
 
-void add_irc_message(char* msg){
+void handle_irc_request_client(char* input);
+
+void log_msg(char* msg){
     pthread_mutex_lock(&myMutex);
     time_t t = time(NULL);
     struct tm tm = *localtime(&t);
@@ -19,9 +22,18 @@ void add_irc_message(char* msg){
     pthread_mutex_unlock(&myMutex);
 }
 
+void vlog_msg(const char *fmt, ...){
+    char buffer[MAX_MESSAGE_LEN];
+    va_list args;
+    va_start(args, fmt);
+    int rc = vsnprintf(buffer, sizeof(buffer), fmt, args);
+    va_end(args);
+    log_msg(buffer);
+}
+
 char* submit_input(char* input){
     // currently only showing the input
-    add_irc_message(input);
+    handle_irc_request_client(input);
 }
 
 void* init__irc_interface(void* arg){
@@ -63,7 +75,7 @@ void* init__irc_interface(void* arg){
         wrefresh(inputwin);
 
         // Check for exit condition
-        if (strcmp(msg, "quit") == 0) {
+        if (strncmp(msg, "/quit", 5) == 0) {
             break;
         }
     }

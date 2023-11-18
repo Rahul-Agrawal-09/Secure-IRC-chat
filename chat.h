@@ -6,7 +6,7 @@
 #include <arpa/inet.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
-#include "kdc.h"
+#include "irc_server.h"
 
 // Function to handle a client connection
 void* handle_chat_client(void* arg) {
@@ -48,6 +48,29 @@ void* handle_chat_client(void* arg) {
     }
 
     printf("Sucessfully Authenticated Client %s\n", ticket.requesting_username);
+    int my_index = -1;
+    lock();
+    for(int i=0;i<MAX_CLIENTS;i++){
+        if(logged_users[i].user_socket==-1){
+            strncpy(logged_users[i].username, ticket.requesting_username, sizeof(logged_users[i].username));
+            logged_users[i].user_socket = client_socket;
+            my_index = i;
+            break;
+        }
+    }
+    unlock();
+    if(my_index==-1){
+        perror("Cannot add user threashold reached");
+        return NULL;
+    }
+    // keep on listning for the request from the user
+    handle_irc_request_server(my_index);
+
+    // when user quits
+    lock();
+    logged_users[my_index].user_socket=-1;
+    unlock();
+
     // Close the client socket when done
     close(client_socket);
     return NULL;
