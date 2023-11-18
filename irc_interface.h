@@ -7,7 +7,6 @@
 #include <unistd.h>
 #include "crypto.h"
 
-#define MAX_MESSAGE_LEN 256
 WINDOW *chatwin;
 pthread_mutex_t myMutex = PTHREAD_MUTEX_INITIALIZER;
 

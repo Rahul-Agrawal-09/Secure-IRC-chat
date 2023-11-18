@@ -15,29 +15,59 @@ void who_client(){
     send(client_socket, request, sizeof(request), 0);
     LoggedUser logged_users[MAX_CLIENTS];
     recv(client_socket, logged_users, sizeof(logged_users), 0);
-    int num=1;
+    int num=0;
     for(int i=0;i<MAX_CLIENTS;i++){
-        if(logged_users[i].user_socket != -1){
-            vlog_msg("%d-> %s", num++, logged_users[i].username);
+        if(logged_users[i].user_socket != -1 && strcmp(logged_users[i].username, info->username) != 0){
+            vlog_msg("%d-> %s [ID: %d]", ++num, logged_users[i].username, logged_users[i].user_id);
         }
     }
+    vlog_msg("Total logged in users: %d", num);
 }
 
-void write_all_clien(){
-
+void write_all_client(char *input){
+    char buffer[MAX_MESSAGE_LEN];
+    strncpy(buffer, &input[11], sizeof(buffer)-11);
+    vlog_msg("[INFO] Broadcasting message: %s", buffer);
+    send(client_socket, input, MAX_MESSAGE_LEN, 0);
 }
 
-void create_group_client(){
+void create_group_client(char *input){
+    send(client_socket, input, MAX_MESSAGE_LEN, 0);
+    Group group;
+    recv(client_socket, &group, sizeof(Group), 0);
+    vlog_msg("[INFO] Group %s created [ID: %d]", group.group_name, group.group_id);
+}
+
+void server_pull_request(){
+    BroadcastMessage bmsg;
+    recv(client_socket, &bmsg, sizeof(bmsg), 0);
+    vlog_msg("[BCAST] %s: %s", bmsg.username, bmsg.message);
+    return;
+}
+
+void group_invite_client(char *input){
 
 }
 
 
 void handle_irc_request_client(char* input){
-    vlog_msg("Entered input: %s", input);
-    if(strncmp("/who", input, 4) == 0)
+    vlog_msg("[CMD] Entered input: %s", input);
+
+    if(strncmp("/who", input, 4) == 0){
         who_client();
-    
-    // close the client
-    if(strncmp(input, "/quit", 5) == 0)
+    }
+    if(strncmp("/write_all ", input, 11) == 0){
+        write_all_client(input);
+    }
+    if(strncmp(input, "/create_group ", 14) == 0){
+        create_group_client(input);
+    }
+    if(strncmp(input, "/group_invite ", 14) == 0){
+        group_invite_client(input);
+    }
+
+    // quit the server
+    if(strncmp(input, "/quit", 5) == 0){
         quit_server();
+    }
 }

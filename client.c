@@ -1,4 +1,5 @@
 #include "irc_client.h"
+#include <signal.h>
 
 #define KDC_SERVER_IP "127.0.0.1"
 
@@ -83,6 +84,11 @@ void chat_server_authentication() {
     if(send(client_socket, encrypted_reponse, encrypted_response_len, 0) == -1)
         perror("Error sending challenge");    
 
+    // exchangin pid [for pullbased protocol]
+    ptr[1]; recv(client_socket, ptr, 1, 0);
+    pid_t pid = getpid();
+    send(client_socket, &pid, sizeof(pid), 0);
+    signal(SIGUSR1, server_pull_request);
 }
 
 // Function to handle the Needham-Schroeder Protocol on the client side

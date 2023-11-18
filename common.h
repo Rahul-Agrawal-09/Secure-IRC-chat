@@ -10,6 +10,7 @@
 #include <openssl/rand.h>
 
 #define MAX_CLIENTS 10
+#define MAX_GROUPS 20
 #define MAX_USERNAME_LEN 64
 #define MAX_PASSWORD_LEN 64
 #define MAX_SYMMETRIC_KEY_LEN 256
@@ -23,6 +24,7 @@
 #define ITERATION_COUNT 10000 // Number of iterations
 #define ENCRYPTED_TICKET_LEN 256
 #define SERVER_IP "127.0.0.1"
+#define MAX_MESSAGE_LEN 256
 
 #define MAX_NONCE INT32_MAX
 #define CHAT_SERVER_USERNAME "NssChat123"
@@ -31,6 +33,7 @@ typedef struct {
     char username[MAX_USERNAME_LEN];
     char password[MAX_PASSWORD_LEN];
     unsigned char symmetric_key[MAX_SYMMETRIC_KEY_LEN];
+    int user_id;
     // char ticket[MAX_SYMMETRIC_KEY_LEN]; // Store user's ticket
 } User;
 
@@ -67,8 +70,23 @@ typedef struct {
 
 typedef struct {
     char username[MAX_USERNAME_LEN];
-    int user_socket; 
+    int user_socket;
+    int user_id;
+    User *user;
+    pid_t pid;
 } LoggedUser;
+
+typedef struct{
+    char username[MAX_USERNAME_LEN];
+    char message[MAX_MESSAGE_LEN]; 
+} BroadcastMessage;
+
+typedef struct{
+    char group_name[MAX_USERNAME_LEN];
+    int group_id;
+    User *admin;
+    User *group_users[MAX_CLIENTS];
+} Group;
 
 // Generate a random nonce within the specified range
 int generate_nonce() {
@@ -104,3 +122,7 @@ void derive_key(char *password, char *key) {
 
 }
 
+int id = 1000;
+int get_id(){
+    return ++id;
+}

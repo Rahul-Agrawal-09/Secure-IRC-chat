@@ -26,7 +26,6 @@ void* handle_chat_client(void* arg) {
     decrypt_data(encrypted_nonce2, encrypted_nonce_len, ticket.session_key, NULL, nonce2);
     printf("Requesting User: %s\nSession key: %s\nNonce2: %s\n",ticket.requesting_username, ticket.session_key, nonce2);
 
-
     // constructing and sending challenge to the client
     Challenge challenge;
     sprintf(challenge.decremented_nonce2, "%d", atoi(nonce2)-1);
@@ -47,14 +46,29 @@ void* handle_chat_client(void* arg) {
         perror("Cannot authenticated client");
     }
 
+    // finding the current user using the username
     printf("Sucessfully Authenticated Client %s\n", ticket.requesting_username);
+    User *current_user;
+    for(int i=0;i<MAX_CLIENTS;i++){
+        if(strcmp(common_data->users[i].username, ticket.requesting_username)==0)
+            current_user = &common_data->users[i];
+    }
+
+    // setting up the IRC server for communication 
     int my_index = -1;
     lock();
     for(int i=0;i<MAX_CLIENTS;i++){
         if(logged_users[i].user_socket==-1){
             strncpy(logged_users[i].username, ticket.requesting_username, sizeof(logged_users[i].username));
             logged_users[i].user_socket = client_socket;
+            logged_users[i].user_id = current_user->user_id;
+            logged_users[i].user = current_user;
             my_index = i;
+
+            // getting pids for pull based protocol
+            send(client_socket, " ", 1, 0);
+            recv(client_socket, &logged_users[my_index].pid, sizeof(pid_t), 0);
+            
             break;
         }
     }
