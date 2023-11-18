@@ -1,4 +1,5 @@
 #include "crypto.h"
+#include "irc_interface.h"
 
 #define KDC_SERVER_IP "127.0.0.1"
 
@@ -8,7 +9,6 @@ NsMessage2 msg2; // contains ticket and other info
 
 // Function to perform KDC authentication
 void kdc_authentication() {
-    
     // sending the A, B, Nonce1 to KDC
     NsMessage1 msg1;
     strncpy(msg1.client_username, info->username, sizeof(msg1.client_username));
@@ -63,7 +63,6 @@ void chat_server_authentication() {
     if(send(client_socket, encrypted_reponse, encrypted_response_len, 0) == -1)
         perror("Error sending challenge");    
 
-
 }
 
 // Function to handle the Needham-Schroeder Protocol on the client side
@@ -94,6 +93,8 @@ void needham_schroeder_protocol() {
 
     // Connect to the chat server and present the ticket for authentication
     // you can choose when to conncet to chat client
+    printf("PRESS ENTER TO CONNECT TO CHAT SERVER: ");
+    getchar();
 
     struct sockaddr_in chat_server_addr;
     // Create socket
@@ -121,6 +122,31 @@ void needham_schroeder_protocol() {
     close(client_socket);
 }
 
+// launch the irc_interfaace
+void launch_irc_interface(){
+    // initialize ncurses
+    initscr();
+    cbreak();
+    // noecho();
+
+    // Create a new thread and pass it the argument
+    pthread_t thread_id;
+    int result = pthread_create(&thread_id, NULL, init__irc_interface, info->username);
+    if (result != 0) {
+        perror("Error creating thread");
+        return;
+    }
+
+    // Wait for the thread to finish
+    result = pthread_join(thread_id, NULL);
+    if (result != 0) {
+        perror("Error joining thread");
+        return;
+    }
+    endwin();
+    return;
+}
+
 int main() {
 
     // Initializing myinformaiton
@@ -139,7 +165,8 @@ int main() {
     // Perform the Needham-Schroeder Protocol
     needham_schroeder_protocol(client_socket);
 
-    // interact with IRC
+    // Launch the IRC interface
+    launch_irc_interface();
 
 
     return 0;
