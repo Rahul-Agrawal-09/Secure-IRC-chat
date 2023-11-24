@@ -182,7 +182,7 @@ int main() {
         return 1;
     }
     printf("Enter your Password: ");
-    scanf("%s", info->password); // password
+    scanf("%100s", info->password); // password
     strncpy(info->username, username, sizeof(info->username)); // username
     derive_key(info->password, info->symmetric_key);
     // printf("My Username: %s\nPassword: %s\nLength of Secret: %ld\n", info->username, info->password ,sizeof(info->symmetric_key));

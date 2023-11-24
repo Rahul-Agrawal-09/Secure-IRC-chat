@@ -26,6 +26,13 @@ void* handle_chat_client(void* arg) {
     decrypt_data(encrypted_ticket, encrypted_ticket_len, common_data->server.symmetric_key, NULL, (unsigned char *)&ticket);
     decrypt_data(encrypted_nonce2, encrypted_nonce_len, ticket.session_key, NULL, nonce2);
     printf("Requesting User: %s\nSession key: %s\nNonce2: %s\n",ticket.requesting_username, ticket.session_key, nonce2);
+    for(int i=0;i<MAX_CLIENTS;i++){
+        if(strcmp(logged_users[i].username, ticket.requesting_username) == 0 && logged_users[i].user_socket != -1){
+            printf("[WARN] User %s already logged in.\n", ticket.requesting_username);
+            close(client_socket);
+            pthread_exit(0);
+        }
+    }
     
     // finding the current user using the username
     printf("Sucessfully Authenticated Client %s\n", ticket.requesting_username);
