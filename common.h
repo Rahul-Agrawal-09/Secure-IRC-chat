@@ -28,6 +28,7 @@
 #define ENCRYPTED_TICKET_LEN 256
 #define SERVER_IP "127.0.0.1"
 #define MAX_MESSAGE_LEN 256
+#define MAX_PASSWORD_ATTEMPTS 3
 
 #define MAX_NONCE INT32_MAX
 #define CHAT_SERVER_USERNAME "NssChat123"
@@ -43,8 +44,14 @@ typedef struct {
 } User;
 
 typedef struct {
+    int password_attemps;
+    bool blocked;
+} LoginProtection;
+
+typedef struct {
     User users[MAX_CLIENTS]; // Store user information including passwords, shared secrets, and tickets
     User server;
+    LoginProtection login_protection[MAX_CLIENTS];
     // int current_user_number;
 } CommonData;
 CommonData *common_data;

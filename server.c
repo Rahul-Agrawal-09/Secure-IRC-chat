@@ -35,6 +35,8 @@ int main() {
         derive_key(common_data->users[i].password, common_data->users[i].symmetric_key);
         common_data->users[i].user_id = get_id();
         common_data->users[i].public_key_len = -1;
+        common_data->login_protection[i].blocked = false;
+        common_data->login_protection[i].password_attemps = 0;
         logged_users[i].user_socket = -1;
     }
     // doing the same for the server

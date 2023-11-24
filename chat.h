@@ -19,12 +19,34 @@ void* handle_chat_client(void* arg) {
     size_t encrypted_ticket_len = recv(client_socket, encrypted_ticket, BUFFER_SIZE, 0);
     send(client_socket, " ", 1, 0);
     int encrypted_nonce_len = recv(client_socket, encrypted_nonce2, ENCRYPTED_TICKET_LEN, 0);
-    // Decrypting the tickit and the nonce
+    
+    // Decrypting the ticket and the nonce
     Ticket ticket;
     char nonce2[MAX_NONCE_LENGTH];
     decrypt_data(encrypted_ticket, encrypted_ticket_len, common_data->server.symmetric_key, NULL, (unsigned char *)&ticket);
     decrypt_data(encrypted_nonce2, encrypted_nonce_len, ticket.session_key, NULL, nonce2);
     printf("Requesting User: %s\nSession key: %s\nNonce2: %s\n",ticket.requesting_username, ticket.session_key, nonce2);
+    
+    // finding the current user using the username
+    printf("Sucessfully Authenticated Client %s\n", ticket.requesting_username);
+    User *current_user;
+    LoginProtection *current_login_protection;
+    for(int i=0;i<MAX_CLIENTS;i++){
+        if(strcmp(common_data->users[i].username, ticket.requesting_username)==0){
+            current_user = &common_data->users[i];
+            current_login_protection = &common_data->login_protection[i];
+            break;
+        }
+    }
+    if(current_login_protection->blocked){
+        printf("[ALERT] User %s is BLOCKED due to Maximum number of Attempts.\n", current_user->username);
+        printf("Restart server to unblock it\n");
+        close(client_socket);
+        pthread_exit(0);
+    }
+    else{
+        current_login_protection->password_attemps = 0;
+    }
 
     // constructing and sending challenge to the client
     Challenge challenge;
@@ -44,14 +66,6 @@ void* handle_chat_client(void* arg) {
     if(atoi(response) != atoi(challenge.nonce3)-1){
         printf("CLIENT UnAuthenticated");
         perror("Cannot authenticated client");
-    }
-
-    // finding the current user using the username
-    printf("Sucessfully Authenticated Client %s\n", ticket.requesting_username);
-    User *current_user;
-    for(int i=0;i<MAX_CLIENTS;i++){
-        if(strcmp(common_data->users[i].username, ticket.requesting_username)==0)
-            current_user = &common_data->users[i];
     }
 
     // setting up the IRC server for communication 

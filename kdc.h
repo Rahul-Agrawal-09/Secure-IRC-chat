@@ -1,5 +1,7 @@
 #include "crypto.h"
 
+LoginProtection login_protection[MAX_CLIENTS];
+
 // Function to handle a client connection
 void* handle_kdc_client(void* arg) {
     int client_socket = *((int*)arg);
@@ -18,16 +20,31 @@ void* handle_kdc_client(void* arg) {
     
     // finding the user in the database
     User *current_user = NULL;
+    LoginProtection *current_login_protection;
     for(int i=0;i<MAX_CLIENTS;i++){
-        if(strcmp(msg1.client_username, common_data->users[i].username) == 0)
+        if(strcmp(msg1.client_username, common_data->users[i].username) == 0){
             current_user = &common_data->users[i];
+            current_login_protection = &common_data->login_protection[i];
+        }
     }
     if(current_user == NULL){
         perror("Requested User Does Not Exist");
         exit(EXIT_SUCCESS);
     }
-    // <---- TODO change session key --->
-    char session_key[] = "ThisIsSessionKeyThisIsSessionKey";
+    // counting the login attempt
+    if(current_login_protection->password_attemps>=MAX_PASSWORD_ATTEMPTS){
+        current_login_protection->blocked = true;
+        printf("[ALERT] User %s is BLOCKED due to Maximum number of Attemps.\n", current_user->username);
+        printf("Restart server to unblock it\n");
+        pthread_exit(0);
+    }
+    else{
+        current_login_protection->password_attemps ++;
+    }
+
+    // Making a random session key
+    char session_key[MAX_SESSION_KEY_LEN];//"ThisIsSessionKeyThisIsSessionKey";
+    strncpy(session_key, generate_username(32), sizeof(session_key));
     strncpy(msg2.session_key, session_key, sizeof(msg2.session_key));
     
     // generating ticket
