@@ -63,7 +63,7 @@ int chat_server_authentication() {
         perror("Problem sending ticket");
         return 0;
     }
-    char ptr[1]; recv(client_socket, ptr, 1, 0);
+    char ptr[10]; recv(client_socket, ptr, 1, 0);
     if(send(client_socket, encrypted_nonce2, encrypted_nonce2_len, 0) == -1){
         perror("Problem sending encrypted nonce2");
         return 0;
@@ -89,10 +89,21 @@ int chat_server_authentication() {
         perror("Error sending challenge");    
 
     // exchangin pid [for pullbased protocol]
-    ptr[1]; recv(client_socket, ptr, 1, 0);
+    recv(client_socket, ptr, 1, 0);
     pid_t pid = getpid();
-    send(client_socket, &pid, sizeof(pid), 0);
     signal(SIGUSR1, server_pull_request);
+    send(client_socket, &pid, sizeof(pid), 0);
+    // generaiting and sending the public key
+
+    char ptr2[10];
+    recv(client_socket, ptr2, 10, 0);
+    if(strcmp(ptr2 ,"YES")==0){
+        derive_diffie_hellam(info);
+        send(client_socket, info->public_key, info->public_key_len, 0);
+    }
+    else{
+        send(client_socket, " ", 1, 0);
+    }
 }
 
 // Function to handle the Needham-Schroeder Protocol on the client side
@@ -149,6 +160,12 @@ void needham_schroeder_protocol() {
     chat_server_authentication();
 
     // Launch the IRC interface
+    for(int i=0;i<MAX_GROUPS;i++){
+        pending_group_invitations[i]=-1;
+    }
+    for(int i=0; i<MAX_CLIENTS;i++){
+        pending_public_key_request[i]=-1;
+    }
     launch_irc_interface();
 
     // Close the client socket when done

@@ -90,3 +90,33 @@ int decrypt_data(unsigned char *ciphertext, int ciphertext_len, unsigned char *k
 
     return plaintext_len;
 }
+
+void derive_diffie_hellam(User *info){
+    memset(info->public_key, '\0', BUFFER_SIZE);
+    DH *dh = DH_get_2048_256();
+    if (1 != DH_generate_key(dh)){
+        ERR_print_errors_fp(stderr);
+        exit(EXIT_FAILURE);
+    }
+    const BIGNUM *pub_key = NULL;
+    DH_get0_key(dh, &pub_key, NULL);
+    char *hex_pub_key = BN_bn2hex(pub_key);
+    strncpy(info->public_key, hex_pub_key, strlen(hex_pub_key));
+    info->public_key_len = strlen(hex_pub_key);
+
+    OPENSSL_free(hex_pub_key);
+}
+
+void compute_group_key(DhPublicKeys *public_keys, User*info){
+    char *my_public_key = info->public_key;
+    DH *dh = DH_get_2048_256();
+    BIGNUM *server_pub_key = NULL;
+    BN_hex2bn(&server_pub_key, my_public_key);
+
+    unsigned char shared_secret[256];
+    DH_compute_key(shared_secret, server_pub_key, dh);
+
+    // Hash the shared secret to derive an AES key
+    unsigned char aes_key[32]; // AES-256 key
+    EVP_Digest(shared_secret, sizeof(shared_secret), aes_key, NULL, EVP_sha256(), NULL);
+}

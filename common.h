@@ -8,6 +8,9 @@
 #include <fcntl.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
+#include <openssl/dh.h>
+#include <openssl/bn.h>
+#include <openssl/err.h>
 
 #define MAX_CLIENTS 10
 #define MAX_GROUPS 20
@@ -34,6 +37,8 @@ typedef struct {
     char password[MAX_PASSWORD_LEN];
     unsigned char symmetric_key[MAX_SYMMETRIC_KEY_LEN];
     int user_id;
+    char public_key[BUFFER_SIZE];
+    int public_key_len;
     // char ticket[MAX_SYMMETRIC_KEY_LEN]; // Store user's ticket
 } User;
 
@@ -86,10 +91,16 @@ typedef struct{
 typedef struct{
     char group_name[MAX_USERNAME_LEN];
     int group_id;
+    bool diffi_helman_done;
     User *admin;
     User *invited_users[MAX_CLIENTS];
     User *accepted_users[MAX_CLIENTS];
 } Group;
+
+typedef struct{
+    char public_key[BUFFER_SIZE];
+    bool is_valid;
+} DhPublicKeys;
 
 // Generate a random nonce within the specified range
 int generate_nonce() {

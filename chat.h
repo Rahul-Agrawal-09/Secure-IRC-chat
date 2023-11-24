@@ -68,7 +68,16 @@ void* handle_chat_client(void* arg) {
             // getting pids for pull based protocol
             send(client_socket, " ", 1, 0);
             recv(client_socket, &logged_users[my_index].pid, sizeof(pid_t), 0);
-            
+            // getting the public key
+            if(logged_users[my_index].user->public_key_len < 0){
+                send(client_socket, "YES", 10, 0);
+                logged_users[my_index].user->public_key_len = recv(client_socket, logged_users[my_index].user->public_key, sizeof(logged_users[my_index].user->public_key), 0);
+            }
+            else{
+                int ptr[1];
+                send(client_socket, "NO", 10, 0);
+                // recv(client_socket, ptr, 1, 0);
+            }
             break;
         }
     }

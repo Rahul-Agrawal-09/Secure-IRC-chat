@@ -4,7 +4,6 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <arpa/inet.h>
-
 #include "chat.h"
 
 // #define MAX_SYMMETRIC_KEY_LEN 32 // Length of the derived key (in bytes)
@@ -35,6 +34,7 @@ int main() {
         // Derive a long-term symmetric key from the user's password
         derive_key(common_data->users[i].password, common_data->users[i].symmetric_key);
         common_data->users[i].user_id = get_id();
+        common_data->users[i].public_key_len = -1;
         logged_users[i].user_socket = -1;
     }
     // doing the same for the server

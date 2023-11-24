@@ -2,6 +2,9 @@
 
 User *info; // Store client information including username, password, and ticket
 int client_socket;
+int pending_group_invitations[MAX_GROUPS];
+int joined_group[MAX_GROUPS];
+int pending_public_key_request[MAX_CLIENTS];
 NsMessage2 msg2; // contains ticket and other info
 
 void quit_server(){
@@ -48,17 +51,115 @@ void server_pull_request(){
         vlog_msg("[WARN] %s", msg.message);
     }
     if(strcmp(msg.message_type, "INVITE")==0){
+        for(int i=0;i<MAX_GROUPS;i++){
+            if(pending_group_invitations[i]<0){
+                pending_group_invitations[i] = msg.group_id;
+                break;
+            }
+        }
         vlog_msg("[INVITE] %s", msg.message);
+    }
+    if(strcmp(msg.message_type, "INFO")==0){
+        vlog_msg("[INFO] %s", msg.message);
+    }
+    if(strcmp(msg.message_type, "DIFI")==0){
+        vlog_msg("[ALERT] %s", msg.message);
+        vlog_msg("[INFO] Public requested by user %s for Diffie-Hellman Key Exchange", msg.username);
+        log_msg("[INFO] Sending Public Key....");
+    }
+    if(strcmp(msg.message_type, "PUB_REQUEST")==0){
+        for(int i=0;i<MAX_CLIENTS;i++){
+            if(pending_public_key_request[i] < 0){
+                pending_public_key_request[i] = msg.group_id;
+                break;
+            }
+        }
+        vlog_msg("[ALERT] %s", msg.message);
+    }
+    if(strcmp(msg.message_type, "PUB_RESPONSE")==0){
+        vlog_msg("[INFO] %s", msg.message);
+    }
+    if(strcmp(msg.message_type, "GCAST")==0){
+        vlog_msg("[Group:%d] [User:%s] %s", msg.group_id, msg.username, msg.message);
     }
     return;
 }
 
 void group_invite_client(char *input){
     char buffer[MAX_MESSAGE_LEN];
-    strncpy(buffer, &input[14], sizeof(buffer)-11);
+    strncpy(buffer, &input[14], sizeof(buffer)-14);
     char delim[] = " ";
     char *ptr = strtok(buffer, delim);
     vlog_msg("[INFO] Inviting User: %d in Group: %d", atoi(ptr), atoi(strtok(NULL, " ")));
+    send(client_socket, input, MAX_MESSAGE_LEN, 0);
+}
+
+void group_invite_accept_client(char *input){
+    char buffer[MAX_MESSAGE_LEN];
+    strncpy(buffer, &input[21], sizeof(buffer)-21);
+    char delim[] = " ";
+    char *ptr = strtok(buffer, delim);
+    int group_id = atoi(ptr);
+    bool found = false;
+    for(int i=0;i<MAX_GROUPS;i++){
+        if(pending_group_invitations[i] == group_id){
+            found = true;
+            pending_group_invitations[i] = -1;
+            break;
+        }
+    }
+    if(found){
+        vlog_msg("[INFO] Accepting Inviting of Group: %d", group_id);
+        send(client_socket, input, MAX_MESSAGE_LEN, 0);
+    }
+    else{
+        vlog_msg("[WARN] Group Invitation NOT found Group ID: %d", group_id);
+    }
+}
+
+void init_group_dhxchg_client(char *input){
+    send(client_socket, input, MAX_MESSAGE_LEN, 0);
+    DhPublicKeys public_keys [MAX_CLIENTS];
+    recv(client_socket, public_keys, sizeof(public_keys), 0);
+    log_msg("[INFO] Receiving all public keys");
+    compute_group_key(public_keys, info);
+}
+
+void request_public_key_client(char *input){
+    char buffer[MAX_MESSAGE_LEN];
+    send(client_socket, input, MAX_MESSAGE_LEN, 0);
+    strncpy(buffer, &input[20], sizeof(buffer)-20);
+    char delim[] = " ";
+    char *ptr = strtok(buffer, delim);
+    vlog_msg("[INFO] Requesting Public Key of user: %d", atoi(ptr));
+}
+
+void send_public_key_client(char *input){
+    char buffer[MAX_MESSAGE_LEN];
+    send(client_socket, input, MAX_MESSAGE_LEN, 0);
+    strncpy(buffer, &input[17], sizeof(buffer)-17);
+    char delim[] = " ";
+    char *ptr = strtok(buffer, delim);
+    int user_id = atoi(ptr);
+    bool found = false;
+    for(int i=0;i<MAX_CLIENTS;i++){
+        if(pending_public_key_request[i] == user_id){
+            found = true;
+            pending_public_key_request[i] = -1;
+            break;
+        }
+    }
+    if(found){
+        vlog_msg("[INFO] Sending Public key to User ID: %d", user_id);
+        send(client_socket, input, MAX_MESSAGE_LEN, 0);
+    }
+    else{
+        vlog_msg("[WARN] Key Request NOT found Requester ID: %d", user_id);
+    }
+}
+
+void write_group_client(char *input){
+    log_msg("[INFO] Trying to send message in Group");
     send(client_socket, input, MAX_MESSAGE_LEN, 0);
 }
 
@@ -76,7 +177,22 @@ void handle_irc_request_client(char* input){
         create_group_client(input);
     }
     if(strncmp(input, "/group_invite ", 14) == 0){
-        group_invite_client(input);
+        group_invite_client(input); // user_id group_id
+    }
+    if(strncmp(input, "/group_invite_accept ", 21) == 0){
+        group_invite_accept_client(input);
+    }
+    if(strncmp(input, "/init_group_dhxchg", 18) == 0){
+        init_group_dhxchg_client(input);
+    }
+    if(strncmp(input, "/request_public_key ", 20) == 0){
+        request_public_key_client(input);
+    }
+    if(strncmp(input, "/send_public_key ", 17) == 0){
+        send_public_key_client(input);
+    }
+    if(strncmp(input, "/write_group ", 13) == 0){
+        write_group_client(input);
     }
 
     // quit the server
