@@ -109,6 +109,12 @@ typedef struct{
     bool is_valid;
 } DhPublicKeys;
 
+typedef struct{
+    char Hmac[BUFFER_SIZE];
+    char encrypted_diffi_hellman_key[BUFFER_SIZE];
+    int len;
+} DiffieHellamParams;
+
 // Generate a random nonce within the specified range
 int generate_nonce() {
     // uniqie number every nano second
@@ -146,4 +152,8 @@ void derive_key(char *password, char *key) {
 int id = 1000;
 int get_id(){
     return ++id;
+}
+
+void send_DH_key(unsigned char* shared_key){
+    return;
 }
